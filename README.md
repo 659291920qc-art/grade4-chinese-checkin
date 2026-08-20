@@ -1,71 +1,70 @@
-# 任务：四年级上册语文打卡表 — 增加手动添加错字功能
+# 四年级上册语文·抗遗忘曲线打卡系统（RJ版）
 
-**日期：** 2026-08-20 21:27 GMT+8
-**文件：** `C:\Users\ASUS\.openclaw\workspace\四年级上册语文打卡表.html`
+> 基于艾宾浩斯遗忘曲线设计的小学语文学习打卡工具，单 HTML 文件零依赖，跨设备云端同步（GitHub Gist 私有存储）。
 
-## 目标
-为"错字本"页面增加手动添加错字的能力，覆盖原数据结构中没有覆盖的字/词/多音字，方便用户随时补录错题。
+## 🌐 在线使用
 
-## 关键变更
+**主访问地址**：https://659291920qc-art.github.io/grade4-chinese-checkin/
 
-### 1. UI 改动（HTML）
-在"错词 Tab"统计行下方加了：
-- **`manual-add-bar`**：常驻条，左侧是橙色「➕ 手动添加错字」按钮，右侧提示文案
-- **`manual-form`**（默认隐藏）：点击展开为橙色边框表单，包含 5 个字段：
-  - 类型（下拉：会写字 / 词语 / 多音字）
-  - 所属课文（下拉：自动从 `lessons` 数组生成）
-  - 错字内容（必填，单字限制根据类型校验）
-  - 拼音/读音（可选）
-  - 备注（可选，最多 100 字）
+（首次打开会自动加载本地缓存；如需跨设备同步，按页面顶部「☁️ 云端同步」提示配置。）
 
-### 2. CSS 新增
-- `.manual-add-bar` / `.manual-toggle-btn` — 橙色强调色
-- `.manual-form` — 圆角卡片 + 4px 橙色左边框 + slideDown 入场动画
-- `.manual-form-grid` — 2 列网格，窄屏自动塌缩为单列
-- `.error-tag-manual` — 「手动」橙底小标签
-- `.error-note` — 备注 pill（带 tooltip，溢出省略）
-- `.error-actions .manual-del` — 灰色描边删除按钮
+## ✨ 核心功能
 
-### 3. JS 新增
-| 函数 | 作用 |
-|------|------|
-| `buildLessonOptions()` | 从 `lessons` 动态填充课文下拉 |
-| `updateManualFormHint()` | 切换类型时动态更新 placeholder |
-| `toggleManualForm()` / `closeManualForm()` | 展开/关闭表单，重置字段 |
-| `submitManualError()` | 校验 → 写入 `state.errors` → 重绘 |
-| `deleteError(key)` | 删除手动条目（带 confirm）|
-| `escapeHtml(s)` | 通用 HTML 转义（备注渲染用） |
+- 📊 **总表** — 当前学习进度与错字统计
+- 📖 **每日学习** — 按艾宾浩斯曲线（1/2/4/7/15/30 天）安排的本课生字、词语、多音字
+- 🔁 **每日复习** — 已学内容的间隔复习，按时段筛选
+- ❌ **错字本** — 自动收集错字 + 手动添加（支持易错字、词语、多音字，可填拼音和备注）
+- 🟠 **多音字专项** — 高亮对比 + 单字/词组多音练习
 
-### 4. 数据约定
-手动添加的错字使用如下 `state.errors[key]` 结构：
-```js
-{
-  count: 1,              // 若重复添加 +1
-  char: "臣",            // 兼容已有渲染
-  lessonNo: 3,
-  resolved: false,
-  manual: true,          // 新增：标识手动添加
-  createdAt: "2026-08-20",
-  pinyin: "chén",        // 新增：自定义拼音（可选）
-  note: "右边是'土'"     // 新增：备注（可选）
-}
-```
-Key 规则沿用原约定：`c_第几课_字`、`w_第几课_词`、`d_第几课_字`。
+## ☁️ 云端同步（v2 重要更新）
 
-### 5. 兼容性
-- 已学习的字如果用户重新"手动添加"，仅累加 `count` 并标记 `manual: true`，不覆盖原 `records` 状态
-- 渲染逻辑：`getErrorInfo` 优先使用 `err.pinyin`，自动给手动条目显示「手动」标签、备注和「删除」按钮
-- 数据键与原系统一致，错词 Tab 的「未克服 / 已克服」分类、计数、克服装置均无需改动
-- `localStorage` key (`grade4_chinese_state_v2`) 不变，旧数据完全兼容
+之前版本（v1）数据只在浏览器 `localStorage` 里，换浏览器/换设备数据就没了。
 
-### 6. 校验结果
-- ✅ HTML 标签平衡（124 div open/124 close，1 script open/1 close，1 style open/1 close）
-- ✅ JS `new Function(js)` 无语法错误（37100 字符）
-- ✅ 18 项静态检查全部通过（函数定义、DOM 绑定、CSS 类、初始化调用、去重逻辑等）
+**v2 起支持 GitHub Gist 私有云同步**，流程：
 
-## 待用户决策（未做）
-- 是否需要在「总表」Tab 也加手动添加？目前只在错字本 Tab 添加。
-- 是否需要导出手动错字到 CSV/TXT？目前没有导出功能。
+1. 首次访问 → 顶部出现 `☁️ 云端同步：未设置 · 点此配置` 提示条
+2. 点击 → 输入 GitHub Personal Access Token（需要 `Gist: Read and write` 权限）
+3. 自动创建一个私有 Gist → 之后每次打卡都会自动同步（8 秒 debounce）
+4. 换浏览器/电脑打开同一 URL → 自动拉取最新数据 → 继续打卡
 
-## 结论
-已实现手动添加错字功能；原有打卡 / 复习 / 多音字 / 错字本流程不受影响。直接刷新页面即可使用，数据保存在原有 localStorage。
+**Token 获取教程**（首次配置时页面内也有）：
+1. 打开 https://github.com/settings/tokens?type=beta
+2. Generate new token → 选 Fine-grained
+3. Repository access: Public Repositories（或 All）
+4. Permissions → **Gist: Read and write**（必勾）
+5. 生成 → 复制 `github_pat_...` 开头的 token 粘贴进去
+
+## 📦 技术栈
+
+- 纯 HTML + CSS + 原生 JavaScript（零依赖，单文件）
+- localStorage 主存 + GitHub Gist API 云端同步
+- GitHub Pages 静态托管
+- 字符编码：UTF-8
+
+## 📅 变更记录
+
+### v2 — 云端同步（2026-08-20）
+- 新增 GitHub Gist 私有云同步功能
+- 数据：`learnDay / reviewDateOffset / records / errors`
+- 同步策略：8 秒 debounce 自动上传，启动时拉取最新
+- 冲突解决：以最后修改时间戳为准
+- UI：顶部新增 ☁️ 状态条（连接状态 / 最后同步时间 / 管理入口）
+- **完全向后兼容**：未配置云同步的用户行为完全不变
+
+### v1 — 手动添加错字功能（2026-08-20）
+- 错字 Tab 增加「📝 手动添加错字」按钮
+- 支持易错字、词语、多音字三种类型，可填拼音 + 备注
+- 数据结构：`{ manual: true, pinyin, note, createdAt }`
+
+## 🔒 隐私
+
+- 数据**只存**两个地方：
+  1. 你浏览器 localStorage（本地）
+  2. 你的 GitHub 账号下的一个**私有** Gist（云端）
+- 不经过任何第三方服务器
+- Token 只存在你浏览器 localStorage，不上传
+- 删除仓库 / 删除 Gist / 清浏览器缓存 → 数据消失，三者独立
+
+## 🛠️ 本地开发
+
+直接双击 `index.html` 即可在浏览器打开。所有功能可用，云同步功能需要能访问 `api.github.com`。

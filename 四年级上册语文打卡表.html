@@ -560,6 +560,317 @@ function getState() {
 }
 function saveState(state) {
   localStorage.setItem('grade4_chinese_state_v2', JSON.stringify(state));
+  // 云端同步：每次保存后异步触发（debounce 后真正上传）
+  scheduleCloudUpload();
+}
+
+// ==================== 云端同步（GitHub Gist）====================
+const CLOUD_CONFIG_KEY = 'grade4_chinese_cloud_config_v1';
+const CLOUD_LASTSYNC_KEY = 'grade4_chinese_cloud_lastsync';
+// 同步状态（不存 localStorage，运行时变量）
+const cloud = {
+  enabled: false,    // 是否配置了 token
+  syncing: false,    // 是否正在同步
+  lastSync: null,    // 上次成功同步的时间戳
+  lastError: null,   // 上次错误信息
+  lastSource: null,  // 'upload' | 'download' | null
+};
+
+function getCloudConfig() {
+  try { return JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY) || 'null'); }
+  catch { return null; }
+}
+function saveCloudConfig(cfg) {
+  localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(cfg));
+}
+function clearCloudConfig() {
+  localStorage.removeItem(CLOUD_CONFIG_KEY);
+  localStorage.removeItem(CLOUD_LASTSYNC_KEY);
+}
+
+// 调用 GitHub API 的小工具
+async function ghApi(method, url, body) {
+  const cfg = getCloudConfig();
+  if (!cfg || !cfg.token) throw new Error('未配置同步令牌');
+  const resp = await fetch(url, {
+    method,
+    headers: {
+      'Authorization': 'token ' + cfg.token,
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'Grade4-Chinese-Checkin'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    if (resp.status === 401) throw new Error('令牌无效或已过期（401）');
+    if (resp.status === 404 && method === 'GET') return null;  // gist 不存在视为未创建
+    throw new Error('GitHub API ' + resp.status + ': ' + txt.slice(0, 200));
+  }
+  return resp.json();
+}
+
+// 上传 state 到 gist（创建或更新）
+async function uploadToGist() {
+  const cfg = getCloudConfig();
+  if (!cfg || !cfg.token) return;
+  const stateData = localStorage.getItem('grade4_chinese_state_v2') || JSON.stringify({
+    learnDay: 1, reviewDateOffset: 0, records: {}, errors: {}
+  });
+  const payload = {
+    description: '四年级上册语文打卡数据 - 最后更新 ' + new Date().toISOString(),
+    files: {
+      'checkin-state.json': {
+        content: JSON.stringify({
+          version: 2,
+          updatedAt: Date.now(),
+          data: JSON.parse(stateData)
+        }, null, 2)
+      }
+    }
+  };
+  let url, method;
+  if (cfg.gistId) {
+    url = 'https://api.github.com/gists/' + cfg.gistId;
+    method = 'PATCH';
+  } else {
+    url = 'https://api.github.com/gists';
+    method = 'POST';
+    payload.public = false;  // 私有 gist
+  }
+  const result = await ghApi(method, url, payload);
+  if (!cfg.gistId) {
+    cfg.gistId = result.id;
+    saveCloudConfig(cfg);
+  }
+  cloud.lastSync = Date.now();
+  cloud.lastError = null;
+  cloud.lastSource = 'upload';
+  localStorage.setItem(CLOUD_LASTSYNC_KEY, String(cloud.lastSync));
+  updateCloudStatusUI();
+  console.log('[云同步] 上传成功');
+}
+
+// 从 gist 下载 state
+async function downloadFromGist() {
+  const cfg = getCloudConfig();
+  if (!cfg || !cfg.token || !cfg.gistId) return;
+  const result = await ghApi('GET', 'https://api.github.com/gists/' + cfg.gistId);
+  if (!result) throw new Error('云端数据不存在');
+  const file = result.files && result.files['checkin-state.json'];
+  if (!file || !file.content) throw new Error('云端文件不存在');
+  const parsed = JSON.parse(file.content);
+  if (!parsed.data) throw new Error('云端数据格式错误');
+  localStorage.setItem('grade4_chinese_state_v2', JSON.stringify(parsed.data));
+  cloud.lastSync = Date.now();
+  cloud.lastError = null;
+  cloud.lastSource = 'download';
+  localStorage.setItem(CLOUD_LASTSYNC_KEY, String(cloud.lastSync));
+  updateCloudStatusUI();
+  console.log('[云同步] 下载成功，最后更新于', new Date(parsed.updatedAt).toLocaleString());
+}
+
+// 智能同步：启动时拉一次 + 之后每次打卡后推一次
+let _uploadTimer = null;
+function scheduleCloudUpload() {
+  if (!cloud.enabled || cloud.syncing) return;
+  if (_uploadTimer) clearTimeout(_uploadTimer);
+  _uploadTimer = setTimeout(() => {
+    uploadToGist().catch(err => {
+      cloud.lastError = err.message;
+      updateCloudStatusUI();
+      console.warn('[云同步] 上传失败:', err.message);
+    });
+  }, 8000);  // 8 秒 debounce，避免每次点击都打 GitHub
+}
+
+// 启动时：检查配置 → 拉取最新云端数据
+async function initCloudSync() {
+  const cfg = getCloudConfig();
+  if (cfg && cfg.token) {
+    cloud.enabled = true;
+    try {
+      await downloadFromGist();
+      // 拉回来后刷新整个 UI
+      renderTotal(); renderLearn(); renderReview(); renderError(); renderDuoyin();
+    } catch (err) {
+      cloud.lastError = err.message;
+      updateCloudStatusUI();
+      console.warn('[云同步] 初始化拉取失败:', err.message);
+    }
+  } else {
+    updateCloudStatusUI();
+  }
+}
+
+// ==================== 云同步 UI ====================
+function updateCloudStatusUI() {
+  const statusEl = document.getElementById('cloud-status');
+  if (!statusEl) return;
+  if (!cloud.enabled) {
+    statusEl.innerHTML = '☁️ 云端同步：<a href="#" onclick="showCloudSetup(event)" style="color:#FF9800;text-decoration:underline">未设置 · 点此配置</a>';
+    statusEl.style.background = '#fff3e0';
+    return;
+  }
+  let text;
+  if (cloud.syncing) {
+    text = '⏳ 同步中...';
+  } else if (cloud.lastError) {
+    text = '⚠️ 同步异常：' + cloud.lastError + ' · <a href="#" onclick="showCloudSetup(event)" style="color:#f44336">重新设置</a>';
+  } else if (cloud.lastSync) {
+    const ago = Math.round((Date.now() - cloud.lastSync) / 1000);
+    let agoText;
+    if (ago < 60) agoText = ago + ' 秒前';
+    else if (ago < 3600) agoText = Math.round(ago/60) + ' 分钟前';
+    else agoText = Math.round(ago/3600) + ' 小时前';
+    const dir = cloud.lastSource === 'download' ? '⏬ 已下载' : '⏫ 已上传';
+    text = '☁️ ' + dir + ' · ' + agoText + ' · <a href="#" onclick="showCloudMenu(event)" style="color:#4CAF50;text-decoration:underline">管理</a>';
+  } else {
+    text = '☁️ 已连接 · 等待首次同步';
+  }
+  statusEl.innerHTML = text;
+  statusEl.style.background = cloud.lastError ? '#ffebee' : '#e8f5e9';
+}
+
+function showCloudSetup(e) {
+  if (e) e.preventDefault();
+  const cfg = getCloudConfig();
+  const token = cfg ? cfg.token : '';
+  const html = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="closeCloudModal(event)">
+      <div style="background:white;border-radius:12px;padding:24px;max-width:500px;width:90%;max-height:90vh;overflow:auto" onclick="event.stopPropagation()">
+        <h3 style="margin:0 0 12px 0;color:#2E7D32">☁️ 云端同步设置</h3>
+        <p style="font-size:0.85rem;color:#666;line-height:1.6">
+          输入你的 GitHub Personal Access Token（<b>需要勾选 gist 权限</b>）。
+          <br><br>
+          📖 <b>不知道怎么获取？</b><br>
+          1. 打开 <a href="https://github.com/settings/tokens?type=beta" target="_blank">GitHub Token 设置</a><br>
+          2. 生成新 Token（Fine-grained），<b>Account → Personal Access Tokens → Fine-grained</b><br>
+          3. Repository access 选 <b>"All repositories"</b> 或 "Public Repositories"<br>
+          4. Permissions → <b>Gist: Read and write</b>（必勾）<br>
+          5. 复制 token（<code>github_pat_...</code> 开头）粘贴到下面
+          <br><br>
+          💡 数据会存到你 GitHub 账号下的一个<b>私有</b> Gist 里，只有你能访问
+        </p>
+        <input id="cloud-token-input" type="password" placeholder="github_pat_..." value="${token.replace(/"/g,'&quot;')}" style="width:100%;padding:10px;border:2px solid #ddd;border-radius:6px;font-family:monospace;margin:8px 0;box-sizing:border-box">
+        <div id="cloud-setup-msg" style="font-size:0.85rem;min-height:20px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="submitCloudSetup()" style="flex:1;min-width:120px;padding:10px;background:#4CAF50;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold">🔗 启用云同步</button>
+          ${cfg ? '<button onclick="disconnectCloud()" style="padding:10px;background:#f44336;color:white;border:none;border-radius:6px;cursor:pointer">🚪 断开</button>' : ''}
+          <button onclick="closeCloudModal()" style="padding:10px;background:#ddd;border:none;border-radius:6px;cursor:pointer">取消</button>
+        </div>
+      </div>
+    </div>`;
+  const div = document.createElement('div');
+  div.id = 'cloud-modal';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+}
+
+function closeCloudModal(e) {
+  if (e && e.target !== e.currentTarget) return;
+  const m = document.getElementById('cloud-modal');
+  if (m) m.remove();
+}
+
+async function submitCloudSetup() {
+  const input = document.getElementById('cloud-token-input');
+  const msg = document.getElementById('cloud-setup-msg');
+  const token = input.value.trim();
+  if (!token) { msg.style.color = '#f44336'; msg.textContent = '请输入 token'; return; }
+  if (!token.startsWith('github_pat_') && !token.startsWith('ghp_')) {
+    msg.style.color = '#f44336'; msg.textContent = 'token 格式不对，应以 github_pat_ 或 ghp_ 开头'; return;
+  }
+  msg.style.color = '#666'; msg.textContent = '⏳ 正在验证...';
+  // 先存 token，验证用
+  saveCloudConfig({ token, gistId: null });
+  cloud.enabled = true;
+  cloud.syncing = true;
+  updateCloudStatusUI();
+  try {
+    await uploadToGist();  // 这会创建新 gist
+    msg.style.color = '#4CAF50'; msg.textContent = '✅ 同步已启用！关闭此窗口即可';
+    setTimeout(() => { closeCloudModal(); }, 1500);
+  } catch (err) {
+    msg.style.color = '#f44336'; msg.textContent = '❌ ' + err.message;
+    clearCloudConfig();
+    cloud.enabled = false;
+    updateCloudStatusUI();
+  } finally {
+    cloud.syncing = false;
+    updateCloudStatusUI();
+  }
+}
+
+function disconnectCloud() {
+  if (!confirm('确认断开云同步？本地数据会保留，但不再上传。\n（提示：云端 Gist 数据也会保留，下次连接可继续同步）')) return;
+  const cfg = getCloudConfig();
+  clearCloudConfig();
+  cloud.enabled = false;
+  cloud.lastSync = null;
+  cloud.lastError = null;
+  closeCloudModal();
+  updateCloudStatusUI();
+}
+
+function showCloudMenu(e) {
+  if (e) e.preventDefault();
+  const html = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="closeCloudModal(event)">
+      <div style="background:white;border-radius:12px;padding:24px;max-width:400px;width:90%" onclick="event.stopPropagation()">
+        <h3 style="margin:0 0 12px 0;color:#2E7D32">☁️ 云同步管理</h3>
+        <div id="cloud-menu-status" style="background:#e8f5e9;padding:10px;border-radius:6px;margin-bottom:12px;font-size:0.9rem"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="manualDownload()" style="flex:1;min-width:130px;padding:10px;background:#2196F3;color:white;border:none;border-radius:6px;cursor:pointer">⏬ 从云端下载</button>
+          <button onclick="manualUpload()" style="flex:1;min-width:130px;padding:10px;background:#FF9800;color:white;border:none;border-radius:6px;cursor:pointer">⏫ 立即上传</button>
+        </div>
+        <div id="cloud-menu-msg" style="font-size:0.85rem;min-height:20px;margin-top:8px;color:#666"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button onclick="closeCloudModal()" style="flex:1;padding:10px;background:#ddd;border:none;border-radius:6px;cursor:pointer">关闭</button>
+          <button onclick="showCloudSetup()" style="padding:10px;background:#fff;border:2px solid #FF9800;color:#FF9800;border-radius:6px;cursor:pointer">⚙️ 重新配置</button>
+        </div>
+      </div>
+    </div>`;
+  const div = document.createElement('div');
+  div.id = 'cloud-modal';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  const statusEl = document.getElementById('cloud-menu-status');
+  if (cloud.lastSync) {
+    statusEl.innerHTML = '✅ 已连接<br>最后同步：' + new Date(cloud.lastSync).toLocaleString();
+  } else {
+    statusEl.innerHTML = '⚠️ 已配置但尚未同步';
+  }
+}
+
+async function manualUpload() {
+  const msg = document.getElementById('cloud-menu-msg');
+  cloud.syncing = true; updateCloudStatusUI();
+  try {
+    await uploadToGist();
+    msg.textContent = '✅ 上传成功！';
+  } catch (err) {
+    msg.textContent = '❌ ' + err.message;
+    cloud.lastError = err.message;
+  } finally {
+    cloud.syncing = false; updateCloudStatusUI();
+  }
+}
+async function manualDownload() {
+  if (!confirm('下载会覆盖本地数据，确认继续？')) return;
+  const msg = document.getElementById('cloud-menu-msg');
+  cloud.syncing = true; updateCloudStatusUI();
+  try {
+    await downloadFromGist();
+    renderTotal(); renderLearn(); renderReview(); renderError(); renderDuoyin();
+    msg.textContent = '✅ 下载成功，页面已刷新';
+  } catch (err) {
+    msg.textContent = '❌ ' + err.message;
+    cloud.lastError = err.message;
+  } finally {
+    cloud.syncing = false; updateCloudStatusUI();
+  }
 }
 let state = getState();
 
@@ -1198,6 +1509,22 @@ renderLearn();
 renderReview();
 renderError();
 renderDuoyin();
+
+// 云端同步 UI 注入到 header 下方
+(function injectCloudStatusBar(){
+  const header = document.querySelector('.header');
+  if (!header) return;
+  const bar = document.createElement('div');
+  bar.id = 'cloud-status';
+  bar.style.cssText = 'background:#e8f5e9;padding:8px 15px;text-align:center;font-size:0.85rem;color:#2E7D32';
+  header.parentNode.insertBefore(bar, header.nextSibling);
+})();
+
+// 异步初始化云同步（拉取云端数据 + 更新 UI）
+initCloudSync();
+
+// 每 30 秒更新"X 秒前"显示
+setInterval(updateCloudStatusUI, 30000);
 </script>
 </body>
 </html>
