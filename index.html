@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>四年级上册语文·抗遗忘曲线打卡系统</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --primary: #4CAF50;
+  --primary-light: #81C784;
+  --primary-dark: #2E7D32;
+  --accent: #FF9800;
+  --danger: #f44336;
+  --bg: #f5f5f5;
+  --card-bg: #ffffff;
+  --text: #333;
+  --text-light: #666;
+  --border: #e0e0e0;
+  --shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+body { font-family: -apple-system, 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+.header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 20px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+.header h1 { font-size: 1.4rem; margin-bottom: 5px; }
+.header .subtitle { font-size: 0.85rem; opacity: 0.9; }
+.tabs { display: flex; background: var(--card-bg); box-shadow: var(--shadow); overflow-x: auto; position: sticky; top: 72px; z-index: 99; }
+.tab-btn { flex: 1; min-width: 80px; padding: 12px 8px; border: none; background: transparent; font-size: 0.9rem; color: var(--text-light); cursor: pointer; transition: all 0.3s; border-bottom: 3px solid transparent; white-space: nowrap; }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: bold; }
+.tab-btn:hover { background: #f9f9f9; }
+.tab-content { display: none; padding: 15px; max-width: 900px; margin: 0 auto; }
+.tab-content.active { display: block; }
+.card { background: var(--card-bg); border-radius: 10px; box-shadow: var(--shadow); margin-bottom: 15px; overflow: hidden; }
+.card-header { background: var(--primary-light); color: white; padding: 10px 15px; font-size: 0.95rem; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+.card-header .lesson-no { background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
+.char-grid, .word-grid { display: grid; gap: 8px; padding: 12px; }
+.char-grid { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); }
+.word-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.char-item { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s; background: white; }
+.char-item:hover { border-color: var(--primary); transform: translateY(-2px); }
+.char-item .char { font-size: 1.5rem; font-weight: bold; }
+.char-item .pinyin { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+.char-item .check-area { margin-top: 6px; display: flex; gap: 4px; }
+.char-item .check-btn { width: 24px; height: 24px; border-radius: 50%; border: 2px solid; cursor: pointer; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.char-item .check-btn.ok { border-color: var(--primary); color: var(--primary); }
+.char-item .check-btn.ok.checked { background: var(--primary); color: white; }
+.char-item .check-btn.wrong { border-color: var(--danger); color: var(--danger); }
+.char-item .check-btn.wrong.checked { background: var(--danger); color: white; }
+.char-item.learned-ok { background: #e8f5e9; border-color: var(--primary); }
+.char-item.learned-wrong { background: #ffebee; border-color: var(--danger); }
+.word-item { padding: 8px 10px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s; background: white; display: flex; align-items: center; justify-content: space-between; }
+.word-item:hover { border-color: var(--primary); }
+.word-item .word-text { font-size: 1rem; }
+.word-item .word-check { display: flex; gap: 4px; }
+.stats-bar { background: var(--card-bg); padding: 10px 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: var(--shadow); display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; }
+.stat-item { text-align: center; }
+.stat-item .stat-num { font-size: 1.3rem; font-weight: bold; color: var(--primary); }
+.stat-item .stat-label { font-size: 0.75rem; color: var(--text-light); }
+.date-nav { display: flex; align-items: center; justify-content: center; gap: 15px; margin: 10px 0; }
+.date-nav button { background: var(--primary); color: white; border: none; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; }
+.date-nav button:hover { background: var(--primary-dark); }
+.date-nav button:disabled { background: #ccc; cursor: not-allowed; }
+.date-nav .date-text { font-size: 1rem; font-weight: bold; color: var(--text); }
+.review-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.review-item:last-child { border-bottom: none; }
+.review-item .review-char { font-size: 1.2rem; font-weight: bold; }
+.review-item .review-info { font-size: 0.75rem; color: var(--text-light); }
+.review-item .review-actions { display: flex; gap: 6px; }
+.review-item .review-btn { padding: 4px 12px; border-radius: 15px; border: 2px solid; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
+.review-btn.ok { border-color: var(--primary); color: var(--primary); }
+.review-btn.ok.checked { background: var(--primary); color: white; }
+.review-btn.wrong { border-color: var(--danger); color: var(--danger); }
+.review-btn.wrong.checked { background: var(--danger); color: white; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-light); }
+.empty-state .icon { font-size: 3rem; margin-bottom: 10px; }
+.progress-bar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--primary); transition: width 0.3s; }
+.filter-bar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.filter-btn { padding: 4px 12px; border: 1px solid var(--border); border-radius: 15px; background: white; cursor: pointer; font-size: 0.8rem; }
+.filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+.error-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: #ffebee; }
+.error-item .error-char { font-size: 1.3rem; font-weight: bold; color: var(--danger); }
+.error-item .error-count { background: var(--danger); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; }
+.error-item .error-actions { display: flex; gap: 6px; }
+.lesson-section { margin-bottom: 20px; }
+.lesson-title { font-size: 1rem; font-weight: bold; color: var(--primary-dark); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid var(--primary-light); }
+.sub-tabs { display: flex; gap: 0; margin-bottom: 10px; border-radius: 8px; overflow: hidden; border: 2px solid var(--primary); }
+.sub-tab { flex: 1; padding: 8px; text-align: center; cursor: pointer; background: white; color: var(--primary); font-size: 0.85rem; transition: all 0.2s; }
+.sub-tab.active { background: var(--primary); color: white; }
+.review-stage { font-size: 0.7rem; padding: 2px 6px; border-radius: 8px; color: white; margin-left: 4px; }
+.stage-1 { background: #FF9800; }
+.stage-2 { background: #2196F3; }
+.stage-3 { background: #9C27B0; }
+.stage-4 { background: #4CAF50; }
+.stage-5 { background: #795548; }
+.stage-6 { background: #607D8B; }
+.stage-7 { background: #000; }
+  .pinyin-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .pinyin-table th, .pinyin-table td { border: 1px solid var(--border); padding: 6px 10px; font-size: 0.85rem; text-align: left; }
+  .pinyin-table th { background: #f0f7f0; color: var(--primary-dark); font-weight: bold; }
+  .pinyin-table td.duo-char { font-size: 1.1rem; font-weight: bold; text-align: center; color: var(--primary-dark); width: 50px; }
+  .pinyin-table td.duo-read { color: var(--accent); font-weight: bold; white-space: nowrap; }
+  .pinyin-table td.duo-words { color: var(--text); }
+  .duo-card { background: var(--card-bg); border-radius: 10px; box-shadow: var(--shadow); margin-bottom: 12px; overflow: hidden; }
+  .duo-card-header { background: linear-gradient(135deg, #FF9800, #FF5722); color: white; padding: 8px 15px; font-size: 0.9rem; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+  .duo-card-header .duo-count { background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; }
+  .stat-item.clickable { cursor: pointer; transition: all 0.2s; padding: 4px 8px; }
+  .stat-item.clickable:hover { background: #f0f7f0; border-radius: 8px; }
+  .stat-item.clickable.active { background: #e8f5e9; border-radius: 8px; box-shadow: inset 0 0 0 2px var(--primary); }
+  .duo-check { text-align: center; vertical-align: middle; }
+  .duo-check .check-area { justify-content: center; }
+  .duo-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+  .duo-row-ok { background: #e8f5e9; }
+  .duo-row-wrong { background: #ffebee; }
+  .duo-btn { padding: 2px 8px; border-radius: 12px; border: 2px solid; cursor: pointer; font-size: 0.75rem; transition: all 0.2s; }
+  .duo-btn.ok { border-color: var(--primary); color: var(--primary); }
+  .duo-btn.ok.checked { background: var(--primary); color: white; }
+  .duo-btn.wrong { border-color: var(--danger); color: var(--danger); }
+  .duo-btn.wrong.checked { background: var(--danger); color: white; }
+  .manual-add-bar { background: var(--card-bg); padding: 12px 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .manual-toggle-btn { padding: 8px 18px; background: var(--accent); color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 0.9rem; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+  .manual-toggle-btn:hover { background: #F57C00; transform: translateY(-1px); }
+  .manual-toggle-btn.open { background: #F57C00; }
+  .manual-add-hint { font-size: 0.75rem; color: var(--text-light); flex: 1; }
+  .manual-form { background: var(--card-bg); padding: 14px 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: var(--shadow); border-left: 4px solid var(--accent); display: none; }
+  .manual-form.open { display: block; animation: slideDown 0.2s ease-out; }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  .manual-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .manual-field label { display: block; font-size: 0.75rem; color: var(--text-light); margin-bottom: 4px; font-weight: bold; }
+  .manual-field input, .manual-field select { width: 100%; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 0.9rem; font-family: inherit; background: white; transition: border-color 0.2s; }
+  .manual-field input:focus, .manual-field select:focus { outline: none; border-color: var(--accent); }
+  .manual-field-wide { grid-column: span 2; }
+  .manual-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  .manual-cancel { padding: 7px 16px; background: white; color: var(--text-light); border: 1.5px solid var(--border); border-radius: 16px; cursor: pointer; font-size: 0.85rem; }
+  .manual-cancel:hover { background: #f5f5f5; }
+  .manual-submit { padding: 7px 18px; background: var(--accent); color: white; border: none; border-radius: 16px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
+  .manual-submit:hover { background: #F57C00; }
+  .manual-submit:disabled { background: #ccc; cursor: not-allowed; }
+  .error-tag-manual { font-size: 0.7rem; background: var(--accent); color: white; padding: 1px 6px; border-radius: 8px; margin-left: 6px; font-weight: bold; }
+  .error-note { font-size: 0.7rem; color: var(--text-light); background: #fff3e0; padding: 2px 8px; border-radius: 6px; margin-left: 6px; font-style: italic; display: inline-block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+  .error-actions .manual-del { padding: 4px 10px; border-radius: 15px; border: 2px solid #999; color: #999; cursor: pointer; font-size: 0.8rem; background: white; transition: all 0.2s; }
+  .error-actions .manual-del:hover { background: #999; color: white; }
+  .manual-empty-hint { text-align: center; padding: 8px; font-size: 0.8rem; color: var(--text-light); }
+@media (max-width: 600px) {
+  .header h1 { font-size: 1.1rem; }
+  .char-grid { grid-template-columns: repeat(auto-fill, minmax(55px, 1fr)); }
+  .word-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  .pinyin-table { font-size: 0.75rem; }
+  .pinyin-table th, .pinyin-table td { padding: 4px 6px; }
+  .manual-form-grid { grid-template-columns: 1fr; }
+  .manual-field-wide { grid-column: span 1; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📚 四年级上册语文·抗遗忘曲线打卡</h1>
+  <div class="subtitle">最新RJ版 · 会写字 + 词语 + 多音字 · 艾宾浩斯遗忘曲线复习</div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('total')">📋 总表</button>
+  <button class="tab-btn" onclick="switchTab('learn')">📖 每日学习</button>
+  <button class="tab-btn" onclick="switchTab('review')">🔄 每日复习</button>
+  <button class="tab-btn" onclick="switchTab('error')">❌ 错词</button>
+  <button class="tab-btn" onclick="switchTab('duoyin')">🔤 多音字</button>
+</div>
+
+<!-- 总表 Tab -->
+<div id="tab-total" class="tab-content active">
+  <div class="stats-bar">
+    <div class="stat-item"><div class="stat-num" id="total-chars">0</div><div class="stat-label">会写字总数</div></div>
+    <div class="stat-item"><div class="stat-num" id="total-words">0</div><div class="stat-label">词语总数</div></div>
+    <div class="stat-item"><div class="stat-num" id="learned-count">0</div><div class="stat-label">已学</div></div>
+    <div class="stat-item"><div class="stat-num" id="mastered-count">0</div><div class="stat-label">已掌握</div></div>
+  </div>
+  <div class="sub-tabs">
+    <div class="sub-tab active" onclick="switchSubTab('chars')">会写字</div>
+    <div class="sub-tab" onclick="switchSubTab('words')">词语</div>
+  </div>
+  <div id="total-chars-list"></div>
+  <div id="total-words-list" style="display:none;"></div>
+</div>
+
+<!-- 每日学习 Tab -->
+<div id="tab-learn" class="tab-content">
+  <div class="date-nav">
+    <button onclick="changeLearnDay(-1)">◀ 前一天</button>
+    <span class="date-text" id="learn-day-text">第1天</span>
+    <button onclick="changeLearnDay(1)">后一天 ▶</button>
+  </div>
+  <div class="stats-bar">
+    <div class="stat-item"><div class="stat-num" id="learn-total">0</div><div class="stat-label">本课字数</div></div>
+    <div class="stat-item"><div class="stat-num" id="learn-ok-count">0</div><div class="stat-label">已掌握</div></div>
+    <div class="stat-item"><div class="stat-num" id="learn-wrong-count">0</div><div class="stat-label">错误</div></div>
+  </div>
+  <div class="sub-tabs">
+    <div class="sub-tab active" onclick="switchLearnSubTab('chars')">会写字</div>
+    <div class="sub-tab" onclick="switchLearnSubTab('words')">词语</div>
+  </div>
+  <div id="learn-chars-list"></div>
+  <div id="learn-words-list" style="display:none;"></div>
+</div>
+
+<!-- 每日复习 Tab -->
+<div id="tab-review" class="tab-content">
+  <div class="date-nav">
+    <button onclick="changeReviewDay(-1)">◀ 前一天</button>
+    <span class="date-text" id="review-day-text">今天</span>
+    <button onclick="changeReviewDay(1)">后一天 ▶</button>
+  </div>
+  <div class="stats-bar">
+    <div class="stat-item"><div class="stat-num" id="review-total">0</div><div class="stat-label">待复习</div></div>
+    <div class="stat-item"><div class="stat-num" id="review-ok-count">0</div><div class="stat-label">已复习</div></div>
+    <div class="stat-item"><div class="stat-num" id="review-wrong-count">0</div><div class="stat-label">需加强</div></div>
+  </div>
+  <div id="review-list"></div>
+</div>
+
+<!-- 错词 Tab -->
+<div id="tab-error" class="tab-content">
+  <div class="stats-bar" style="cursor:pointer;">
+    <div class="stat-item" onclick="switchErrorFilter('unresolved')" id="stat-error-total"><div class="stat-num" id="error-total">0</div><div class="stat-label">错字总数</div></div>
+    <div class="stat-item" onclick="switchErrorFilter('resolved')" id="stat-error-mastered"><div class="stat-num" id="error-mastered">0</div><div class="stat-label">已克服</div></div>
+  </div>
+
+  <div class="manual-add-bar">
+    <button class="manual-toggle-btn" id="manual-toggle-btn" onclick="toggleManualForm()">➕ 手动添加错字</button>
+    <span class="manual-add-hint">支持添加字、词语、多音字，附带备注说明常见错误</span>
+  </div>
+
+  <div class="manual-form" id="manual-form">
+    <div class="manual-form-grid">
+      <div class="manual-field">
+        <label for="manual-type">类型</label>
+        <select id="manual-type" onchange="updateManualFormHint()">
+          <option value="c">会写字（单字）</option>
+          <option value="w">词语</option>
+          <option value="d">多音字</option>
+        </select>
+      </div>
+      <div class="manual-field">
+        <label for="manual-lesson">所属课文</label>
+        <select id="manual-lesson"></select>
+      </div>
+      <div class="manual-field">
+        <label for="manual-text">错字内容 <span style="color:#999;font-weight:normal;">*</span></label>
+        <input type="text" id="manual-text" placeholder="输入字或词语" maxlength="20" />
+      </div>
+      <div class="manual-field">
+        <label for="manual-pinyin">拼音/读音（可选）</label>
+        <input type="text" id="manual-pinyin" placeholder="如：shè 或 shè/shí" maxlength="40" />
+      </div>
+      <div class="manual-field manual-field-wide">
+        <label for="manual-note">备注（写错原因/易错点）</label>
+        <input type="text" id="manual-note" placeholder="例如：右边是'土'不是'士'；多音字易混" maxlength="100" />
+      </div>
+    </div>
+    <div class="manual-form-actions">
+      <button class="manual-cancel" onclick="closeManualForm()">取消</button>
+      <button class="manual-submit" id="manual-submit-btn" onclick="submitManualError()">✓ 添加到错字本</button>
+    </div>
+  </div>
+
+  <div class="sub-tabs" style="margin-bottom:12px;">
+    <div class="sub-tab active" id="error-tab-unresolved" onclick="switchErrorFilter('unresolved')">未克服</div>
+    <div class="sub-tab" id="error-tab-resolved" onclick="switchErrorFilter('resolved')">已克服</div>
+  </div>
+  <div id="error-list"></div>
+</div>
+
+<!-- 多音字 Tab -->
+<div id="tab-duoyin" class="tab-content">
+  <div class="stats-bar">
+    <div class="stat-item"><div class="stat-num" id="duo-total">0</div><div class="stat-label">多音字总数</div></div>
+    <div class="stat-item"><div class="stat-num" id="duo-lessons">0</div><div class="stat-label">涉及课文</div></div>
+    <div class="stat-item clickable" id="stat-duo-ok" onclick="switchDuoFilter('ok')"><div class="stat-num" id="duo-ok">0</div><div class="stat-label">已会</div></div>
+    <div class="stat-item clickable" id="stat-duo-wrong" onclick="switchDuoFilter('wrong')"><div class="stat-num" id="duo-wrong">0</div><div class="stat-label">不会</div></div>
+  </div>
+  <div id="duoyin-list"></div>
+</div>
+
+<script>
+// ==================== 数据：最新RJ版四年级上册会写字+词语 ====================
+// 按用户提供的写字表图片录入。图片未显示课文名，name暂用"第X课"，待确认后补充。
+const lessons = [
+  { no: 1, name: "第1课", chars: [
+    {c:"据",p:"jù"},{c:"堤",p:"dī"},{c:"屹",p:"yì"},{c:"顿",p:"dùn"},{c:"逐",p:"zhú"},
+    {c:"渐",p:"jiàn"},{c:"堵",p:"dǔ"},{c:"浩",p:"hào"},{c:"崩",p:"bēng"},{c:"霎",p:"shà"},
+    {c:"余",p:"yú"}
+  ], words: ["农历","据说","大堤","屹立","人山人海","顿时","风平浪静","变化","逐渐","齐头并进","浩浩荡荡","山崩地裂","霎时","余波"] },
+  { no: 2, name: "第2课", chars: [
+    {c:"繁",p:"fán"},{c:"寂",p:"jì"},{c:"谈",p:"tán"},{c:"躺",p:"tǎng"},{c:"糊",p:"hú"},
+    {c:"围",p:"wéi"}
+  ], words: ["繁星","密密麻麻","忘记","静寂","虽然","谈话","渐渐","模糊","周围","梦幻","怀抱"] },
+  { no: 4, name: "第4课", chars: [
+    {c:"舒",p:"shū"},{c:"适",p:"shì"},{c:"揭",p:"jiē"},{c:"晓",p:"xiǎo"},{c:"滚",p:"gǔn"},
+    {c:"滑",p:"huá"},{c:"擦",p:"cā"},{c:"虚",p:"xū"},{c:"探",p:"tàn"},{c:"棍",p:"gùn"},
+    {c:"曾",p:"céng"},{c:"沟",p:"gōu"},{c:"涨",p:"zhǎng"}
+  ], words: ["暖洋洋","舒适","黑暗","揭晓","身份","滑落","虚弱","安静","但愿","棍子","的确","曾经","打滚","水沟"] },
+  { no: 5, name: "第5课", chars: [
+    {c:"蚊",p:"wén"},{c:"题",p:"tí"},{c:"科",p:"kē"},{c:"绳",p:"shéng"},{c:"嘴",p:"zuǐ"},
+    {c:"蝇",p:"yíng"},{c:"靠",p:"kào"},{c:"研",p:"yán"},{c:"究",p:"jiū"},{c:"播",p:"bō"},
+    {c:"驾",p:"jià"},{c:"驶",p:"shǐ"}
+  ], words: ["蚊子","问题","科学家","绳子","苍蝇","证明","配合","研究","传播","如何","现代","安装","类似","驾驶员"] },
+  { no: 6, name: "第6课", chars: [
+    {c:"帽",p:"mào"},{c:"脑",p:"nǎo"},{c:"袋",p:"dài"},{c:"服",p:"fú"},{c:"蕉",p:"jiāo"},
+    {c:"假",p:"jiǎ"},{c:"扣",p:"kòu"},{c:"懂",p:"dǒng"},{c:"筒",p:"tǒng"},{c:"摆",p:"bǎi"},
+    {c:"玻",p:"bō"},{c:"璃",p:"lí"}
+  ], words: ["帽子","脑袋","舒服","香蕉","假如","设法","懂事","圆筒","各式各样","摆放","玻璃","广告","改变"] },
+  { no: 8, name: "第8课", chars: [
+    {c:"残",p:"cán"},{c:"铺",p:"pū"},{c:"壁",p:"bì"},{c:"横",p:"héng"},{c:"侧",p:"cè"},
+    {c:"峰",p:"fēng"},{c:"庐",p:"lú"},{c:"缘",p:"yuán"},{c:"梅",p:"méi"},{c:"降",p:"xiáng"},
+    {c:"章",p:"zhāng"},{c:"输",p:"shū"}
+  ], words: [] },
+  { no: 9, name: "第9课", chars: [
+    {c:"虎",p:"hǔ"},{c:"操",p:"cāo"},{c:"墙",p:"qiáng"},{c:"隙",p:"xì"},{c:"茎",p:"jīng"},
+    {c:"柄",p:"bǐng"},{c:"触",p:"chù"},{c:"萎",p:"wěi"},{c:"痕",p:"hén"},{c:"迹",p:"jì"},
+    {c:"瞧",p:"qiáo"}
+  ], words: ["爬山虎","操场","新鲜","均匀","空隙","叶柄","触角","弯曲","细小","痕迹","瞧不起","牢固","休想"] },
+  { no: 10, name: "第10课", chars: [
+    {c:"宅",p:"zhái"},{c:"毫",p:"háo"},{c:"选",p:"xuǎn"},{c:"择",p:"zé"},{c:"址",p:"zhǐ"},
+    {c:"穴",p:"xué"},{c:"厅",p:"tīng"},{c:"专",p:"zhuān"},{c:"内",p:"nèi"},{c:"修",p:"xiū"},
+    {c:"较",p:"jiào"},{c:"增",p:"zēng"}
+  ], words: ["住宅","毫不","选择","住址","洞穴","大厅","专家","柔弱","惊奇","内部","光滑","修理","清洁","较大","增长"] },
+  { no: 11, name: "第11课", chars: [
+    {c:"醒",p:"xǐng"},{c:"翻",p:"fān"},{c:"缓",p:"huǎn"},{c:"重",p:"zhòng"},{c:"踏",p:"tà"},
+    {c:"随",p:"suí"},{c:"丈",p:"zhàng"},{c:"疲",p:"pí"},{c:"竭",p:"jié"},{c:"照",p:"zhào"},
+    {c:"耀",p:"yào"},{c:"肢",p:"zhī"},{c:"创",p:"chuàng"}
+  ], words: ["宇宙","醒来","黑乎乎","翻身","缓缓","上升","下降","随着","重新","精疲力竭","照耀","四肢","奔流不息","茂盛","创造"] },
+  { no: 12, name: "第12课", chars: [
+    {c:"填",p:"tián"},{c:"曰",p:"yuē"},{c:"溺",p:"nì"},{c:"衔",p:"xián"}
+  ], words: [] },
+  { no: 13, name: "第13课", chars: [
+    {c:"喷",p:"pēn"},{c:"驱",p:"qū"},{c:"即",p:"jí"},{c:"执",p:"zhí"},{c:"佩",p:"pèi"},
+    {c:"忍",p:"rěn"},{c:"既",p:"jì"},{c:"遭",p:"zāo"},{c:"屈",p:"qū"},{c:"肝",p:"gān"},
+    {c:"脏",p:"zàng"},{c:"获",p:"huò"}
+  ], words: ["喷射","驱赶","严厉","立即","执行","敬佩","归还","坚定","忍受","遭受","尽管","屈服","肝脏","承受"] },
+  { no: 15, name: "第15课", chars: [
+    {c:"嗅",p:"xiù"},{c:"猛",p:"měng"},{c:"烈",p:"liè"},{c:"顺",p:"shùn"},{c:"奈",p:"nài"},
+    {c:"躯",p:"qū"},{c:"掩",p:"yǎn"},{c:"浑",p:"hún"},{c:"牺",p:"xī"},{c:"牲",p:"shēng"},
+    {c:"庞",p:"páng"},{c:"强",p:"qiáng"},{c:"量",p:"liàng"}
+  ], words: ["悄悄","猛烈","顺着","无可奈何","锋利","绝望","身躯","掩护","浑身","牺牲","庞大","强大","力量","勇气"] },
+  { no: 16, name: "第16课", chars: [
+    {c:"脚",p:"jiǎo"},{c:"陡",p:"dǒu"},{c:"级",p:"jí"},{c:"链",p:"liàn"},{c:"颤",p:"chàn"},
+    {c:"攀",p:"pān"},{c:"猴",p:"hóu"},{c:"呵",p:"hē"},{c:"啦",p:"la"},{c:"鼓",p:"gǔ"}
+  ], words: ["假日","脚下","云彩","石级","铁链","发颤","年纪","奋力","猴子","纪念","笑呵呵","居然"] },
+  { no: 17, name: "第17课", chars: [
+    {c:"峻",p:"jùn"},{c:"旋",p:"xuán"},{c:"扩",p:"kuò"},{c:"砖",p:"zhuān"},{c:"隔",p:"gé"},
+    {c:"仗",p:"zhàng"},{c:"扶",p:"fú"},{c:"耗",p:"hào"},{c:"智",p:"zhì"},{c:"慧",p:"huì"},
+    {c:"程",p:"chéng"}
+  ], words: ["崇山峻岭","盘旋","扩建","方砖","平整","打仗","呼应","古代","当地","耗费","智慧","工程","奇迹"] },
+  { no: 18, name: "第18课", chars: [
+    {c:"绕",p:"rào"},{c:"漆",p:"qī"},{c:"幅",p:"fú"},{c:"栽",p:"zāi"},{c:"耸",p:"sǒng"},
+    {c:"煌",p:"huáng"},{c:"镜",p:"jìng"},{c:"隐",p:"yǐn"},{c:"狮",p:"shī"}
+  ], words: ["柱子","栏杆","人物","神清气爽","耸立","金碧辉煌","镜子","几乎","隐隐约约","堤岸","中心","游人","狮子","姿态"] },
+  { no: 20, name: "第20课", chars: [
+    {c:"鹅",p:"é"},{c:"骑",p:"qí"},{c:"拳",p:"quán"},{c:"竖",p:"shù"},{c:"竟",p:"jìng"},
+    {c:"胸",p:"xiōng"},{c:"鞋",p:"xié"},{c:"拖",p:"tuō"},{c:"胳",p:"gē"},{c:"脖",p:"bó"},
+    {c:"握",p:"wò"},{c:"摔",p:"shuāi"}
+  ], words: ["拳头","完全","靠近","墙壁","故意","神气","惊呼","鞋子","助威","胳膊","握住","纷纷","可笑","从此","无缘无故"] },
+  { no: 21, name: "第21课", chars: [
+    {c:"表",p:"biǎo"},{c:"演",p:"yǎn"},{c:"掌",p:"zhǎng"},{c:"练",p:"liàn"},{c:"捧",p:"pěng"},
+    {c:"示",p:"shì"},{c:"技",p:"jì"},{c:"撤",p:"chè"},{c:"哄",p:"hōng"},{c:"堂",p:"táng"},
+    {c:"幕",p:"mù"},{c:"摘",p:"zhāi"}
+  ], words: ["表演","鼓掌","角色","期待","排练","通情达理","充分","提示","演技","满意","撤换","哄堂大笑","幕布","摘下","垂头丧气"] },
+  { no: 23, name: "第23课", chars: [
+    {c:"戎",p:"róng"},{c:"诸",p:"zhū"},{c:"竞",p:"jìng"},{c:"唯",p:"wéi"}
+  ], words: [] },
+  { no: 24, name: "第24课", chars: [
+    {c:"席",p:"xí"},{c:"抛",p:"pāo"},{c:"艰",p:"jiān"},{c:"奉",p:"fèng"},{c:"稍",p:"shāo"},
+    {c:"训",p:"xùn"},{c:"副",p:"fù"},{c:"勤",p:"qín"}
+  ], words: ["主席","注视","补充","责任","艰巨","奉献","建设","勤劳"] },
+  { no: 25, name: "第25课", chars: [
+    {c:"崛",p:"jué"},{c:"肃",p:"sù"},{c:"脆",p:"cuì"},{c:"默",p:"mò"},{c:"晰",p:"xī"},
+    {c:"离",p:"lí"},{c:"凡",p:"fán"},{c:"撑",p:"chēng"},{c:"惩",p:"chéng"},{c:"训",p:"xùn"},
+    {c:"斥",p:"chì"},{c:"燃",p:"rán"}
+  ], words: ["崛起","严肃","干脆","默默","若有所思","清晰","竟然","抱负","胸怀","离开","非凡","撑腰","惩处","训斥","沉重","燃烧"] },
+  { no: 27, name: "第27课", chars: [
+    {c:"词",p:"cí"},{c:"葡",p:"pú"},{c:"萄",p:"táo"},{c:"杯",p:"bēi"},{c:"塞",p:"sài"},
+    {c:"秦",p:"qín"},{c:"使",p:"shǐ"},{c:"将",p:"jiàng"},{c:"杰",p:"jié"},{c:"鬼",p:"guǐ"},
+    {c:"雄",p:"xióng"},{c:"项",p:"xiàng"}
+  ], words: [] }
+];
+
+// 遗忘曲线复习间隔（天）
+const reviewIntervals = [1, 2, 4, 7, 15, 30, 60];
+
+// ==================== 数据：多音字（按识字表+写字表） ====================
+const duoyinData = [
+  { no: 1, name: "第1课", items: [
+    { id:"1_薄", c:"薄", reads:[{p:"bó",w:"单薄"},{p:"báo",w:"薄纸"},{p:"bò",w:"薄荷"}] },
+    { id:"1_隆", c:"隆", reads:[{p:"lóng",w:"隆重"},{p:"lōng",w:"轰隆隆"}] }
+  ]},
+  { no: 2, name: "第2课", items: [
+    { id:"2_为", c:"为", reads:[{p:"wéi",w:"认为"},{p:"wèi",w:"因为"}] }
+  ]},
+  { no: 3, name: "第3课", items: [
+    { id:"3_种", c:"种", reads:[{p:"zhǒng",w:"种子"},{p:"zhòng",w:"种地"}] },
+    { id:"3_当", c:"当", reads:[{p:"dàng",w:"当作"},{p:"dāng",w:"当面"}] }
+  ]},
+  { no: 4, name: "第4课", items: [
+    { id:"4_啊", c:"啊", reads:[{p:"ā",w:"啊，真美哇！"},{p:"á",w:"啊，你说什么？"},{p:"ǎ",w:"啊，这是怎么回事？"},{p:"à",w:"啊，好吧。"}] }
+  ]},
+  { no: 5, name: "第5课", items: [
+    { id:"5_屏", c:"屏", reads:[{p:"píng",w:"屏幕"},{p:"bǐng",w:"屏气"}] }
+  ]},
+  { no: 6, name: "第6课", items: [
+    { id:"6_假", c:"假", reads:[{p:"jiǎ",w:"真假 假如"},{p:"jià",w:"放假 假期"}] },
+    { id:"6_溜", c:"溜", reads:[{p:"liù",w:"一溜烟"},{p:"liū",w:"溜走"}] }
+  ]},
+  { no: 7, name: "第7课", items: [
+    { id:"7_将", c:"将", reads:[{p:"jiàng",w:"将领"},{p:"jiāng",w:"将来"}] },
+    { id:"7_划", c:"划", reads:[{p:"huà",w:"计划"},{p:"huá",w:"划船"}] }
+  ]},
+  { no: 8, name: "第8课", items: [
+    { id:"8_降", c:"降", reads:[{p:"xiáng",w:"投降"},{p:"jiàng",w:"下降"}] }
+  ]},
+  { no: 9, name: "第9课", items: [
+    { id:"9_曲", c:"曲", reads:[{p:"qū",w:"弯曲"},{p:"qǔ",w:"歌曲"}] }
+  ]},
+  { no: 12, name: "第12课", items: [
+    { id:"12_少", c:"少", reads:[{p:"shào",w:"少年"},{p:"shǎo",w:"多少"}] }
+  ]},
+  { no: 13, name: "第13课", items: [
+    { id:"13_脏", c:"脏", reads:[{p:"zàng",w:"心脏"},{p:"zāng",w:"弄脏"}] }
+  ]},
+  { no: 18, name: "第18课", items: [
+    { id:"18_佛", c:"佛", reads:[{p:"fó",w:"大佛"},{p:"fú",w:"仿佛"}] }
+  ]},
+  { no: 19, name: "第19课", items: [
+    { id:"19_着", c:"着", reads:[{p:"zhuó",w:"着装"},{p:"zhe",w:"等着"},{p:"zháo",w:"着急"}] },
+    { id:"19_撒", c:"撒", reads:[{p:"sā",w:"撒手"},{p:"sǎ",w:"撒盐"}] }
+  ]},
+  { no: 21, name: "第21课", items: [
+    { id:"21_露", c:"露", reads:[{p:"lòu",w:"露脸"},{p:"lù",w:"露水"}] },
+    { id:"21_唉", c:"唉", reads:[{p:"āi",w:"唉声叹气"},{p:"ài",w:"唉，没办法"}] }
+  ]},
+  { no: 23, name: "第23课", items: [
+    { id:"23_转", c:"转", reads:[{p:"zhuàn",w:"转圈"},{p:"zhuǎn",w:"转身"}] },
+    { id:"23_钉", c:"钉", reads:[{p:"dīng",w:"铁钉"},{p:"dìng",w:"钉扣子"}] }
+  ]}
+];
+
+// 获取多音字唯一key
+function duoKey(c, lessonNo) { return `d_${lessonNo}_${c}`; }
+
+// ==================== 多音字渲染 ====================
+function renderDuoyin() {
+  const container = document.getElementById('duoyin-list');
+  container.innerHTML = '';
+  let totalDuo = 0;
+  let lessonCount = 0;
+  let okCount = 0;
+  let wrongCount = 0;
+
+  duoyinData.forEach(lesson => {
+    const realItems = lesson.items.filter(i => i.reads.length > 0);
+    if (realItems.length === 0) return;
+    lessonCount++;
+    totalDuo += realItems.length;
+
+    const card = document.createElement('div');
+    card.className = 'duo-card';
+    card.innerHTML = `<div class="duo-card-header">第${lesson.no}课 ${lesson.name} <span class="duo-count">${realItems.length}字</span></div>`;
+    const body = document.createElement('div');
+    body.style.padding = '8px 12px';
+
+    const table = document.createElement('table');
+    table.className = 'pinyin-table';
+    table.innerHTML = '<tr><th>字</th><th>读音</th><th>组词</th><th style="width:90px;text-align:center;">打卡</th></tr>';
+    realItems.forEach(item => {
+      const key = duoyinKey(item.c, lesson.no);
+      const rec = state.records[key];
+      if (rec && rec.status === 'ok') okCount++;
+      if (rec && rec.status === 'wrong') wrongCount++;
+
+      item.reads.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = (rec && rec.status === 'ok') ? 'duo-row-ok' : (rec && rec.status === 'wrong') ? 'duo-row-wrong' : '';
+        if (idx === 0) {
+          const tdChar = document.createElement('td');
+          tdChar.className = 'duo-char';
+          tdChar.rowSpan = item.reads.length;
+          tdChar.textContent = item.c;
+          tr.appendChild(tdChar);
+          const tdCheck = document.createElement('td');
+          tdCheck.className = 'duo-check';
+          tdCheck.rowSpan = item.reads.length;
+          tdCheck.style.textAlign = 'center';
+          tdCheck.innerHTML = `
+            <div class="check-area" style="justify-content:center;">
+              <div class="check-btn ok ${rec && rec.status === 'ok' ? 'checked' : ''}" onclick="markDuo('${item.c}', ${lesson.no}, 'ok')">✓</div>
+              <div class="check-btn wrong ${rec && rec.status === 'wrong' ? 'checked' : ''}" onclick="markDuo('${item.c}', ${lesson.no}, 'wrong')">✗</div>
+            </div>
+          `;
+          tr.appendChild(tdCheck);
+        }
+        const tdRead = document.createElement('td');
+        tdRead.className = 'duo-read';
+        tdRead.textContent = r.p;
+        tr.appendChild(tdRead);
+        const tdWords = document.createElement('td');
+        tdWords.className = 'duo-words';
+        tdWords.textContent = r.w;
+        tr.appendChild(tdWords);
+        table.appendChild(tr);
+      });
+    });
+    body.appendChild(table);
+    card.appendChild(body);
+    container.appendChild(card);
+  });
+
+  document.getElementById('duo-total').textContent = totalDuo;
+  document.getElementById('duo-lessons').textContent = lessonCount;
+  document.getElementById('duo-ok').textContent = okCount;
+  document.getElementById('duo-wrong').textContent = wrongCount;
+  document.getElementById('stat-duo-ok').classList.toggle('active', duoFilter === 'ok');
+  document.getElementById('stat-duo-wrong').classList.toggle('active', duoFilter === 'wrong');
+}
+
+let duoFilter = 'all';
+
+function switchDuoFilter(filter) {
+  duoFilter = duoFilter === filter ? 'all' : filter;
+  renderDuoyin();
+}
+
+function markDuo(c, lessonNo, status) {
+  const key = duoyinKey(c, lessonNo);
+  if (state.records[key] && state.records[key].status === status) {
+    delete state.records[key];
+    if (state.errors[key]) state.errors[key].resolved = true;
+  } else {
+    state.records[key] = { status, learnDay: state.learnDay, learnDate: new Date().toISOString().slice(0,10) };
+    if (status === 'wrong') {
+      if (!state.errors[key]) state.errors[key] = { count: 0, char: c, lessonNo };
+      state.errors[key].count++;
+      state.errors[key].resolved = false;
+    } else if (status === 'ok') {
+      if (state.errors[key]) state.errors[key].resolved = true;
+    }
+  }
+  saveState(state);
+  renderDuoyin();
+  renderError();
+}
+
+// ==================== 状态管理 ====================
+function getState() {
+  const saved = localStorage.getItem('grade4_chinese_state_v2');
+  if (saved) return JSON.parse(saved);
+  return {
+    learnDay: 1,
+    reviewDateOffset: 0,
+    records: {},
+    errors: {}
+  };
+}
+function saveState(state) {
+  localStorage.setItem('grade4_chinese_state_v2', JSON.stringify(state));
+}
+let state = getState();
+
+// 获取所有课程的扁平列表（按学习顺序）
+function getAllLessonsFlat() {
+  return lessons;
+}
+
+// 获取第n天学的是哪一课
+function getLessonByDay(day) {
+  if (day < 1 || day > lessons.length) return null;
+  return lessons[day - 1];
+}
+
+// 获取字符的唯一key
+function charKey(c, lessonNo) { return `c_${lessonNo}_${c}`; }
+function wordKey(w, lessonNo) { return `w_${lessonNo}_${w}`; }
+function duoKey(c, p, lessonNo) { return `d_${lessonNo}_${c}_${p}`; }
+function duoyinKey(c, lessonNo) { return `d_${lessonNo}_${c}`; }
+function duoKey(c, lessonNo) { return `d_${lessonNo}_${c}`; }
+
+// 标记多音字掌握状态
+function markDuo(c, lessonNo, status) {
+  const key = duoKey(c, lessonNo);
+  if (state.records[key] && state.records[key].status === status) {
+    delete state.records[key];
+  } else {
+    state.records[key] = { status, learnDay: state.learnDay, learnDate: new Date().toISOString().slice(0,10) };
+    if (status === 'wrong') {
+      if (!state.errors[key]) state.errors[key] = { count: 0, char: c, lessonNo, type: 'duo' };
+      state.errors[key].count++;
+      state.errors[key].resolved = false;
+    } else if (status === 'ok') {
+      if (state.errors[key]) state.errors[key].resolved = true;
+    }
+  }
+  saveState(state);
+  renderDuoyin();
+  renderError();
+}
+function duoKey(c, lessonNo) { return `d_${lessonNo}_${c}`; }
+
+// ==================== 总表渲染 ====================
+let totalSubTab = 'chars';
+function renderTotal() {
+  const charsContainer = document.getElementById('total-chars-list');
+  const wordsContainer = document.getElementById('total-words-list');
+
+  let totalChars = 0, totalWords = 0, learnedCount = 0, masteredCount = 0;
+
+  charsContainer.innerHTML = '';
+  lessons.forEach(lesson => {
+    totalChars += lesson.chars.length;
+    const section = document.createElement('div');
+    section.className = 'lesson-section';
+    section.innerHTML = `<div class="lesson-title">第${lesson.no}课 ${lesson.name} <span style="font-size:0.8rem;color:#999">（${lesson.chars.length}字）</span></div>`;
+    const grid = document.createElement('div');
+    grid.className = 'char-grid';
+    lesson.chars.forEach(ch => {
+      const key = charKey(ch.c, lesson.no);
+      const rec = state.records[key];
+      if (rec) { learnedCount++; if (rec.status === 'ok') masteredCount++; }
+      const item = document.createElement('div');
+      item.className = 'char-item' + (rec ? (rec.status === 'ok' ? ' learned-ok' : ' learned-wrong') : '');
+      item.innerHTML = `
+        <div class="char">${ch.c}</div>
+        <div class="pinyin">${ch.p}</div>
+      `;
+      grid.appendChild(item);
+    });
+    section.appendChild(grid);
+    charsContainer.appendChild(section);
+  });
+
+  wordsContainer.innerHTML = '';
+  lessons.forEach(lesson => {
+    totalWords += lesson.words.length;
+    const section = document.createElement('div');
+    section.className = 'lesson-section';
+    section.innerHTML = `<div class="lesson-title">第${lesson.no}课 ${lesson.name} <span style="font-size:0.8rem;color:#999">（${lesson.words.length}词）</span></div>`;
+    const grid = document.createElement('div');
+    grid.className = 'word-grid';
+    lesson.words.forEach(w => {
+      const key = wordKey(w, lesson.no);
+      const rec = state.records[key];
+      const item = document.createElement('div');
+      item.className = 'word-item' + (rec ? (rec.status === 'ok' ? ' learned-ok' : ' learned-wrong') : '');
+      item.innerHTML = `<span class="word-text">${w}</span>`;
+      grid.appendChild(item);
+    });
+    section.appendChild(grid);
+    wordsContainer.appendChild(section);
+  });
+
+  document.getElementById('total-chars').textContent = totalChars;
+  document.getElementById('total-words').textContent = totalWords;
+  document.getElementById('learned-count').textContent = learnedCount;
+  document.getElementById('mastered-count').textContent = masteredCount;
+}
+
+function switchSubTab(tab) {
+  totalSubTab = tab;
+  document.querySelectorAll('#tab-total .sub-tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'chars') || (i === 1 && tab === 'words'));
+  });
+  document.getElementById('total-chars-list').style.display = tab === 'chars' ? 'block' : 'none';
+  document.getElementById('total-words-list').style.display = tab === 'words' ? 'block' : 'none';
+}
+
+// ==================== 每日学习渲染 ====================
+let learnSubTab = 'chars';
+function renderLearn() {
+  const lesson = getLessonByDay(state.learnDay);
+  const learnDayText = document.getElementById('learn-day-text');
+  if (!lesson) {
+    learnDayText.textContent = '已学完';
+    document.getElementById('learn-chars-list').innerHTML = '<div class="empty-state"><div class="icon">🎉</div>所有课程已学完！</div>';
+    document.getElementById('learn-words-list').innerHTML = '';
+    document.getElementById('learn-total').textContent = 0;
+    document.getElementById('learn-ok-count').textContent = 0;
+    document.getElementById('learn-wrong-count').textContent = 0;
+    return;
+  }
+  learnDayText.textContent = `第${state.learnDay}天 · 第${lesson.no}课 ${lesson.name}`;
+
+  const charsContainer = document.getElementById('learn-chars-list');
+  charsContainer.innerHTML = '';
+  let okCount = 0, wrongCount = 0;
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-header">会写字 <span class="lesson-no">${lesson.chars.length}字</span></div>`;
+  const grid = document.createElement('div');
+  grid.className = 'char-grid';
+  lesson.chars.forEach(ch => {
+    const key = charKey(ch.c, lesson.no);
+    const rec = state.records[key];
+    if (rec && rec.status === 'ok') okCount++;
+    if (rec && rec.status === 'wrong') wrongCount++;
+    const item = document.createElement('div');
+    item.className = 'char-item' + (rec ? (rec.status === 'ok' ? ' learned-ok' : ' learned-wrong') : '');
+    item.innerHTML = `
+      <div class="char">${ch.c}</div>
+      <div class="pinyin">${ch.p}</div>
+      <div class="check-area">
+        <div class="check-btn ok ${rec && rec.status === 'ok' ? 'checked' : ''}" onclick="markChar('${ch.c}', ${lesson.no}, 'ok')">✓</div>
+        <div class="check-btn wrong ${rec && rec.status === 'wrong' ? 'checked' : ''}" onclick="markChar('${ch.c}', ${lesson.no}, 'wrong')">✗</div>
+      </div>
+    `;
+    grid.appendChild(item);
+  });
+  card.appendChild(grid);
+  charsContainer.appendChild(card);
+
+  const wordsContainer = document.getElementById('learn-words-list');
+  wordsContainer.innerHTML = '';
+  const wcard = document.createElement('div');
+  wcard.className = 'card';
+  if (lesson.words.length > 0) {
+    wcard.innerHTML = `<div class="card-header">词语 <span class="lesson-no">${lesson.words.length}词</span></div>`;
+    const wgrid = document.createElement('div');
+    wgrid.className = 'word-grid';
+    lesson.words.forEach(w => {
+      const key = wordKey(w, lesson.no);
+      const rec = state.records[key];
+      const item = document.createElement('div');
+      item.className = 'word-item' + (rec ? (rec.status === 'ok' ? ' learned-ok' : ' learned-wrong') : '');
+      item.innerHTML = `
+        <span class="word-text">${w}</span>
+        <div class="word-check">
+          <div class="check-btn ok ${rec && rec.status === 'ok' ? 'checked' : ''}" onclick="markWord('${w}', ${lesson.no}, 'ok')">✓</div>
+          <div class="check-btn wrong ${rec && rec.status === 'wrong' ? 'checked' : ''}" onclick="markWord('${w}', ${lesson.no}, 'wrong')">✗</div>
+        </div>
+      `;
+      wgrid.appendChild(item);
+    });
+    wcard.appendChild(wgrid);
+  } else {
+    wcard.innerHTML = `<div class="card-header">词语</div><div class="empty-state" style="padding:20px;"><div class="icon">📝</div>暂无词语表数据<br><span style="font-size:0.8rem;color:var(--text-light);">图片写字表中未包含词语表</span></div>`;
+  }
+  wordsContainer.appendChild(wcard);
+
+  document.getElementById('learn-total').textContent = lesson.chars.length + lesson.words.length;
+  document.getElementById('learn-ok-count').textContent = okCount;
+  document.getElementById('learn-wrong-count').textContent = wrongCount;
+}
+
+function switchLearnSubTab(tab) {
+  learnSubTab = tab;
+  document.querySelectorAll('#tab-learn .sub-tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'chars') || (i === 1 && tab === 'words'));
+  });
+  document.getElementById('learn-chars-list').style.display = tab === 'chars' ? 'block' : 'none';
+  document.getElementById('learn-words-list').style.display = tab === 'words' ? 'block' : 'none';
+}
+
+function changeLearnDay(delta) {
+  const newDay = state.learnDay + delta;
+  if (newDay < 1 || newDay > lessons.length) return;
+  state.learnDay = newDay;
+  saveState(state);
+  renderLearn();
+}
+
+function markChar(c, lessonNo, status) {
+  const key = charKey(c, lessonNo);
+  if (state.records[key] && state.records[key].status === status) {
+    delete state.records[key];
+  } else {
+    state.records[key] = { status, learnDay: state.learnDay, learnDate: new Date().toISOString().slice(0,10) };
+    if (status === 'wrong') {
+      if (!state.errors[key]) state.errors[key] = { count: 0, char: c, lessonNo };
+      state.errors[key].count++;
+    } else if (status === 'ok') {
+      if (state.errors[key]) {
+        state.errors[key].resolved = true;
+      }
+    }
+  }
+  saveState(state);
+  renderLearn();
+  renderTotal();
+}
+
+function markWord(w, lessonNo, status) {
+  const key = wordKey(w, lessonNo);
+  if (state.records[key] && state.records[key].status === status) {
+    delete state.records[key];
+  } else {
+    state.records[key] = { status, learnDay: state.learnDay, learnDate: new Date().toISOString().slice(0,10) };
+    if (status === 'wrong') {
+      if (!state.errors[key]) state.errors[key] = { count: 0, char: w, lessonNo };
+      state.errors[key].count++;
+    } else if (status === 'ok') {
+      if (state.errors[key]) {
+        state.errors[key].resolved = true;
+      }
+    }
+  }
+  saveState(state);
+  renderLearn();
+  renderTotal();
+}
+
+// ==================== 每日复习渲染 ====================
+function renderReview() {
+  const container = document.getElementById('review-list');
+  const today = new Date();
+  today.setDate(today.getDate() + state.reviewDateOffset);
+  const dateText = document.getElementById('review-day-text');
+  if (state.reviewDateOffset === 0) dateText.textContent = '今天';
+  else if (state.reviewDateOffset === -1) dateText.textContent = '昨天';
+  else if (state.reviewDateOffset === 1) dateText.textContent = '明天';
+  else dateText.textContent = `${state.reviewDateOffset > 0 ? '+' : ''}${state.reviewDateOffset}天`;
+
+  const reviewItems = [];
+  Object.entries(state.records).forEach(([key, rec]) => {
+    if (rec.status && rec.learnDate) {
+      const learnDate = new Date(rec.learnDate);
+      const diffDays = Math.floor((today - learnDate) / (1000 * 60 * 60 * 24));
+      if (!rec.reviewLog) rec.reviewLog = [];
+      const lastReviewStage = rec.reviewLog.length > 0 ? Math.max(...rec.reviewLog.map(r => r.stage)) : -1;
+      let dueToday = false;
+      let nextStage = -1;
+      for (let i = lastReviewStage + 1; i < reviewIntervals.length; i++) {
+        if (diffDays >= reviewIntervals[i]) {
+          dueToday = true;
+          nextStage = i;
+          break;
+        }
+      }
+      if (dueToday) {
+        const isChar = key.startsWith('c_');
+        const parts = key.split('_');
+        const lessonNo = parseInt(parts[1]);
+        const text = parts.slice(2).join('_');
+        const lesson = lessons.find(l => l.no === lessonNo);
+        let pinyin = '';
+        if (isChar && lesson) {
+          const ch = lesson.chars.find(c => c.c === text);
+          if (ch) pinyin = ch.p;
+        }
+        reviewItems.push({
+          key, text, isChar, lessonNo, pinyin,
+          lessonName: lesson ? lesson.name : '',
+          learnDate: rec.learnDate,
+          diffDays,
+          stage: nextStage,
+          status: rec.status
+        });
+      }
+    }
+  });
+
+  reviewItems.sort((a, b) => a.stage - b.stage);
+
+  document.getElementById('review-total').textContent = reviewItems.length;
+  let reviewOk = 0, reviewWrong = 0;
+
+  if (reviewItems.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">✅</div>今天没有需要复习的内容！<br>新学的内容会按照遗忘曲线自动出现在这里。</div>';
+  } else {
+    container.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<div class="card-header">今日复习清单 <span class="lesson-no">${reviewItems.length}项</span></div>`;
+    const list = document.createElement('div');
+    reviewItems.forEach(item => {
+      const stageNames = ['1天后','2天后','4天后','7天后','15天后','30天后','60天后'];
+      const stageColors = ['stage-1','stage-2','stage-3','stage-4','stage-5','stage-6','stage-7'];
+      const row = document.createElement('div');
+      row.className = 'review-item';
+      row.innerHTML = `
+        <div>
+          <span class="review-char">${item.text}</span>
+          ${item.isChar ? `<span class="review-info">${item.pinyin}</span>` : ''}
+          <span class="review-stage ${stageColors[item.stage]}">${stageNames[item.stage]}</span>
+          <div class="review-info">第${item.lessonNo}课 ${item.lessonName} · 学于${item.diffDays}天前</div>
+        </div>
+        <div class="review-actions">
+          <button class="review-btn ok" onclick="markReview('${item.key}', 'ok')">✓ 记得</button>
+          <button class="review-btn wrong" onclick="markReview('${item.key}', 'wrong')">✗ 忘了</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+    card.appendChild(list);
+    container.appendChild(card);
+  }
+
+  document.getElementById('review-ok-count').textContent = reviewOk;
+  document.getElementById('review-wrong-count').textContent = reviewWrong;
+}
+
+function markReview(key, result) {
+  const rec = state.records[key];
+  if (!rec) return;
+  if (!rec.reviewLog) rec.reviewLog = [];
+  const today = new Date();
+  today.setDate(today.getDate() + state.reviewDateOffset);
+  const learnDate = new Date(rec.learnDate);
+  const diffDays = Math.floor((today - learnDate) / (1000 * 60 * 60 * 24));
+  let stage = 0;
+  for (let i = 0; i < reviewIntervals.length; i++) {
+    if (diffDays >= reviewIntervals[i]) stage = i;
+  }
+  rec.reviewLog.push({ date: today.toISOString().slice(0,10), stage, result });
+  if (result === 'wrong') {
+    if (!state.errors[key]) {
+      const parts = key.split('_');
+      const lessonNo = parseInt(parts[1]);
+      const text = parts.slice(2).join('_');
+      state.errors[key] = { count: 0, char: text, lessonNo };
+    }
+    state.errors[key].count++;
+    state.errors[key].resolved = false;
+  }
+  saveState(state);
+  renderReview();
+  renderTotal();
+}
+
+function changeReviewDay(delta) {
+  state.reviewDateOffset += delta;
+  saveState(state);
+  renderReview();
+}
+
+// ==================== 错词渲染 ====================
+let errorFilter = 'unresolved'; // 'unresolved' | 'resolved'
+
+function switchErrorFilter(filter) {
+  errorFilter = filter;
+  document.getElementById('error-tab-unresolved').classList.toggle('active', filter === 'unresolved');
+  document.getElementById('error-tab-resolved').classList.toggle('active', filter === 'resolved');
+  renderError();
+}
+
+function getErrorInfo(key, err) {
+  const parts = key.split('_');
+  const prefix = parts[0];
+  const lessonNo = parseInt(parts[1]);
+  const text = parts.slice(2).join('_');
+  const lesson = lessons.find(l => l.no === lessonNo);
+  let pinyin = '', tag = '', typeName = '';
+  if (prefix === 'c') {
+    const ch = lesson && lesson.chars.find(c => c.c === text);
+    if (ch) pinyin = ch.p;
+    typeName = '会写字';
+  } else if (prefix === 'w') {
+    typeName = '词语';
+  } else if (prefix === 'd') {
+    const duoLesson = duoyinData.find(d => d.no === lessonNo);
+    const duoItem = duoLesson && duoLesson.items.find(i => i.c === text);
+    if (duoItem) pinyin = duoItem.reads.map(r => r.p).join(' / ');
+    typeName = '多音字';
+  }
+  // 手动添加的项，使用自定义拼音（如有）
+  if (err && err.pinyin) pinyin = err.pinyin;
+  return { text, lessonNo, lessonName: lesson ? lesson.name : '', pinyin, typeName, count: err.count, note: err && err.note, manual: err && err.manual };
+}
+
+function renderError() {
+  const container = document.getElementById('error-list');
+  const unresolved = Object.entries(state.errors).filter(([k, v]) => !v.resolved);
+  const resolved = Object.entries(state.errors).filter(([k, v]) => v.resolved);
+  document.getElementById('error-total').textContent = unresolved.length;
+  document.getElementById('error-mastered').textContent = resolved.length;
+
+  const entries = errorFilter === 'unresolved' ? unresolved : resolved;
+
+  if (entries.length === 0) {
+    container.innerHTML = errorFilter === 'unresolved'
+      ? '<div class="empty-state"><div class="icon">🎉</div>暂无错字！继续保持！</div>'
+      : '<div class="empty-state"><div class="icon">👍</div>还没有已克服的字，加油！</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  entries.sort((a, b) => b[1].count - a[1].count);
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  const title = errorFilter === 'unresolved' ? '错字本' : '已克服';
+  card.innerHTML = `<div class="card-header">${title} <span class="lesson-no">${entries.length}个</span></div>`;
+  const list = document.createElement('div');
+  list.style.padding = '10px';
+
+  entries.forEach(([key, err]) => {
+    const info = getErrorInfo(key, err);
+    const row = document.createElement('div');
+    row.className = 'error-item' + (info.manual ? ' manual' : '');
+    const manualTag = info.manual ? '<span class="error-tag-manual">手动</span>' : '';
+    const noteEl = info.note ? `<span class="error-note" title="${escapeHtml(info.note)}">📝 ${escapeHtml(info.note)}</span>` : '';
+    row.innerHTML = `
+      <div style="flex:1;min-width:0;">
+        <span class="error-char">${info.text}</span>
+        ${info.pinyin ? `<span style="font-size:0.75rem;color:#999;margin-left:6px;">${info.pinyin}</span>` : ''}
+        <span style="font-size:0.75rem;color:#999;margin-left:6px;">第${info.lessonNo}课 ${info.lessonName}</span>
+        <span style="font-size:0.7rem;background:#ddd;padding:1px 6px;border-radius:8px;margin-left:6px;">${info.typeName}</span>
+        ${manualTag}
+        ${noteEl}
+      </div>
+      <div class="error-actions">
+        <span class="error-count">错${info.count}次</span>
+        ${errorFilter === 'unresolved'
+          ? `<button class="review-btn ok" onclick="resolveError('${key}', true)">✓ 已克服</button>`
+          : `<button class="review-btn wrong" onclick="resolveError('${key}', false)">↩ 移回</button>`}
+        ${info.manual ? `<button class="manual-del" onclick="deleteError('${key}')" title="删除该条错字记录">删除</button>` : ''}
+      </div>
+    `;
+    list.appendChild(row);
+  });
+  card.appendChild(list);
+  container.appendChild(card);
+}
+
+function resolveError(key, resolved) {
+  if (state.errors[key]) {
+    state.errors[key].resolved = resolved;
+    saveState(state);
+    renderError();
+  }
+}
+
+function deleteError(key) {
+  if (!confirm('确定删除这个错字记录吗？此操作不可恢复。')) return;
+  delete state.errors[key];
+  saveState(state);
+  renderError();
+  renderTotal();
+  renderDuoyin();
+}
+
+// ==================== 手动添加错字 ====================
+function buildLessonOptions() {
+  const sel = document.getElementById('manual-lesson');
+  if (!sel) return;
+  // 保留已选项
+  const prev = sel.value;
+  sel.innerHTML = '';
+  lessons.forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l.no;
+    opt.textContent = `第${l.no}课 ${l.name}`;
+    sel.appendChild(opt);
+  });
+  if (prev && lessons.find(l => l.no == prev)) sel.value = prev;
+  else sel.value = 1;
+}
+
+function updateManualFormHint() {
+  const type = document.getElementById('manual-type').value;
+  const textEl = document.getElementById('manual-text');
+  const pinyinEl = document.getElementById('manual-pinyin');
+  if (type === 'c') {
+    textEl.placeholder = '输入单个字，例如：臣';
+    pinyinEl.placeholder = '拼音，例如：chén';
+  } else if (type === 'w') {
+    textEl.placeholder = '输入词语，例如：卧室';
+    pinyinEl.placeholder = '拼音（可选），例如：wò shì';
+  } else {
+    textEl.placeholder = '输入多音字，例如：舍';
+    pinyinEl.placeholder = '多个读音，例如：shè / shě';
+  }
+  textEl.value = '';
+  pinyinEl.value = '';
+  textEl.focus();
+}
+
+function toggleManualForm() {
+  const form = document.getElementById('manual-form');
+  const btn = document.getElementById('manual-toggle-btn');
+  const isOpen = form.classList.contains('open');
+  if (isOpen) {
+    closeManualForm();
+  } else {
+    if (document.getElementById('manual-lesson').options.length === 0) buildLessonOptions();
+    form.classList.add('open');
+    btn.classList.add('open');
+    btn.textContent = '✕ 关闭';
+    updateManualFormHint();
+  }
+}
+
+function closeManualForm() {
+  const form = document.getElementById('manual-form');
+  const btn = document.getElementById('manual-toggle-btn');
+  form.classList.remove('open');
+  btn.classList.remove('open');
+  btn.textContent = '➕ 手动添加错字';
+  document.getElementById('manual-text').value = '';
+  document.getElementById('manual-pinyin').value = '';
+  document.getElementById('manual-note').value = '';
+}
+
+function submitManualError() {
+  const type = document.getElementById('manual-type').value;
+  const lessonNo = parseInt(document.getElementById('manual-lesson').value);
+  const textRaw = document.getElementById('manual-text').value.trim();
+  const pinyin = document.getElementById('manual-pinyin').value.trim();
+  const note = document.getElementById('manual-note').value.trim();
+  const btn = document.getElementById('manual-submit-btn');
+
+  if (!textRaw) {
+    alert('请输入错字内容');
+    document.getElementById('manual-text').focus();
+    return;
+  }
+  if (type === 'c' && textRaw.length !== 1) {
+    alert('“会写字”类型只能输入 1 个字，请重新输入。');
+    document.getElementById('manual-text').focus();
+    return;
+  }
+  if (type === 'd' && textRaw.length !== 1) {
+    alert('“多音字”类型只能输入 1 个字，请重新输入。');
+    document.getElementById('manual-text').focus();
+    return;
+  }
+  if (type === 'w' && textRaw.length < 2) {
+    if (!confirm('“词语”通常至少2个字，继续添加「' + textRaw + '」吗？')) {
+      document.getElementById('manual-text').focus();
+      return;
+    }
+  }
+
+  btn.disabled = true;
+  btn.textContent = '添加中…';
+
+  const key = (type === 'c' ? charKey : (type === 'w' ? wordKey : duoyinKey))(textRaw, lessonNo);
+
+  if (state.errors[key]) {
+    state.errors[key].count = (state.errors[key].count || 0) + 1;
+    state.errors[key].resolved = false;
+    if (note) state.errors[key].note = note;
+    if (pinyin) state.errors[key].pinyin = pinyin;
+    state.errors[key].manual = true;
+    state.errors[key].updatedAt = new Date().toISOString().slice(0,10);
+  } else {
+    state.errors[key] = {
+      count: 1,
+      char: textRaw,
+      lessonNo: lessonNo,
+      resolved: false,
+      manual: true,
+      createdAt: new Date().toISOString().slice(0,10)
+    };
+    if (note) state.errors[key].note = note;
+    if (pinyin) state.errors[key].pinyin = pinyin;
+  }
+  saveState(state);
+
+  closeManualForm();
+  btn.disabled = false;
+  btn.textContent = '✓ 添加到错字本';
+  renderError();
+
+  setTimeout(() => {
+    btn.textContent = '✓ 已添加';
+    setTimeout(() => { btn.textContent = '✓ 添加到错字本'; }, 1500);
+  }, 50);
+}
+
+// ==================== Tab切换 ====================
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  event.target.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  document.getElementById(`tab-${tabName}`).classList.add('active');
+
+  if (tabName === 'total') renderTotal();
+  if (tabName === 'learn') renderLearn();
+  if (tabName === 'review') renderReview();
+  if (tabName === 'error') renderError();
+  if (tabName === 'duoyin') renderDuoyin();
+}
+
+// ==================== HTML转义辅助 ====================
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ==================== 初始化 ====================
+buildLessonOptions();
+renderTotal();
+renderLearn();
+renderReview();
+renderError();
+renderDuoyin();
+</script>
+</body>
+</html>
