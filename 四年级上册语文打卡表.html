@@ -709,7 +709,7 @@ function updateCloudStatusUI() {
   const statusEl = document.getElementById('cloud-status');
   if (!statusEl) return;
   if (!cloud.enabled) {
-    statusEl.innerHTML = '☁️ 云端同步：<a href="#" onclick="showCloudSetup(event)" style="color:#FF9800;text-decoration:underline">未设置 · 点此配置</a>';
+    statusEl.innerHTML = '☁️ <a href="#" onclick="showCloudMenu(event)" style="color:#FF9800;text-decoration:underline">云同步未设置</a> · <a href="#" onclick="showCloudSetup(event)" style="color:#9C27B0;text-decoration:underline">点此配置</a>';
     statusEl.style.background = '#fff3e0';
     return;
   }
@@ -735,6 +735,8 @@ function updateCloudStatusUI() {
 
 function showCloudSetup(e) {
   if (e) e.preventDefault();
+  // 复用 showCloudMenu 的界面（它已经有 JSON 备份 + 云同步的入口）
+  // 只有想改 token 时才进这个专门的 token 输入面板
   const cfg = getCloudConfig();
   const token = cfg ? cfg.token : '';
   const html = `
@@ -759,6 +761,11 @@ function showCloudSetup(e) {
           <button onclick="submitCloudSetup()" style="flex:1;min-width:120px;padding:10px;background:#4CAF50;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold">🔗 启用云同步</button>
           ${cfg ? '<button onclick="disconnectCloud()" style="padding:10px;background:#f44336;color:white;border:none;border-radius:6px;cursor:pointer">🚪 断开</button>' : ''}
           <button onclick="closeCloudModal()" style="padding:10px;background:#ddd;border:none;border-radius:6px;cursor:pointer">取消</button>
+        </div>
+        <hr style="margin:18px 0;border:none;border-top:1px solid #eee">
+        <div style="font-size:0.85rem;color:#666;margin-bottom:8px">💾 <b>不想用云同步？</b>可以用 JSON 导入/导出手动备份</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="closeCloudModal();showCloudMenu();" style="flex:1;padding:10px;background:#9C27B0;color:white;border:none;border-radius:6px;cursor:pointer">📁 JSON 备份</button>
         </div>
       </div>
     </div>`;
@@ -818,12 +825,19 @@ function showCloudMenu(e) {
   if (e) e.preventDefault();
   const html = `
     <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="closeCloudModal(event)">
-      <div style="background:white;border-radius:12px;padding:24px;max-width:400px;width:90%" onclick="event.stopPropagation()">
-        <h3 style="margin:0 0 12px 0;color:#2E7D32">☁️ 云同步管理</h3>
+      <div style="background:white;border-radius:12px;padding:24px;max-width:460px;width:90%" onclick="event.stopPropagation()">
+        <h3 style="margin:0 0 12px 0;color:#2E7D32">☁️ 云同步 & 数据管理</h3>
         <div id="cloud-menu-status" style="background:#e8f5e9;padding:10px;border-radius:6px;margin-bottom:12px;font-size:0.9rem"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="font-size:0.85rem;color:#666;margin-bottom:6px">☁️ <b>云同步</b>（需 token，跨设备自动）</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
           <button onclick="manualDownload()" style="flex:1;min-width:130px;padding:10px;background:#2196F3;color:white;border:none;border-radius:6px;cursor:pointer">⏬ 从云端下载</button>
           <button onclick="manualUpload()" style="flex:1;min-width:130px;padding:10px;background:#FF9800;color:white;border:none;border-radius:6px;cursor:pointer">⏫ 立即上传</button>
+        </div>
+        <div style="font-size:0.85rem;color:#666;margin-bottom:6px">💾 <b>本地备份</b>（无需网络，文件存电脑）</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <button onclick="exportToJSON()" style="flex:1;min-width:130px;padding:10px;background:#4CAF50;color:white;border:none;border-radius:6px;cursor:pointer">📤 导出 JSON</button>
+          <button onclick="triggerImportJSON()" style="flex:1;min-width:130px;padding:10px;background:#9C27B0;color:white;border:none;border-radius:6px;cursor:pointer">📥 导入 JSON</button>
+          <input id="import-json-input" type="file" accept=".json,application/json" style="display:none" onchange="importFromJSON(event)">
         </div>
         <div id="cloud-menu-msg" style="font-size:0.85rem;min-height:20px;margin-top:8px;color:#666"></div>
         <div style="display:flex;gap:8px;margin-top:12px">
@@ -839,9 +853,106 @@ function showCloudMenu(e) {
   const statusEl = document.getElementById('cloud-menu-status');
   if (cloud.lastSync) {
     statusEl.innerHTML = '✅ 已连接<br>最后同步：' + new Date(cloud.lastSync).toLocaleString();
-  } else {
+  } else if (cloud.enabled) {
     statusEl.innerHTML = '⚠️ 已配置但尚未同步';
+  } else {
+    statusEl.innerHTML = '⚠️ 未配置云同步<br>可用下面的「本地备份」或「☁️ 重新配置」启用';
+    statusEl.style.background = '#fff3e0';
   }
+}
+
+// ==================== JSON 导入/导出（本地备份）====================
+// 导出当前 state 为 JSON 文件下载
+function exportToJSON() {
+  const msg = document.getElementById('cloud-menu-msg');
+  try {
+    const raw = localStorage.getItem('grade4_chinese_state_v2') || JSON.stringify({
+      learnDay: 1, reviewDateOffset: 0, records: {}, errors: {}
+    });
+    const stateObj = JSON.parse(raw);
+    const exportData = {
+      _format: 'grade4-chinese-checkin/v2',
+      exportedAt: new Date().toISOString(),
+      data: stateObj
+    };
+    const json = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `四年级语文打卡数据_${date}.json`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const records = Object.keys(stateObj.records || {}).length;
+    const errors = Object.keys(stateObj.errors || {}).length;
+    msg.style.color = '#4CAF50';
+    msg.textContent = `✅ 已导出「${filename}」（${records} 条打卡、${errors} 个错字）`;
+  } catch (err) {
+    msg.style.color = '#f44336';
+    msg.textContent = '❌ 导出失败：' + err.message;
+  }
+}
+
+// 触发隐藏的文件选择 input
+function triggerImportJSON() {
+  const input = document.getElementById('import-json-input');
+  if (input) input.click();
+}
+
+// 从用户选择的 JSON 文件恢复 state
+function importFromJSON(event) {
+  const msg = document.getElementById('cloud-menu-msg');
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const text = e.target.result;
+      const parsed = JSON.parse(text);
+      // 校验格式（兼容两种格式：直接 state / 包装格式）
+      let stateObj;
+      if (parsed && parsed._format && parsed._format.startsWith('grade4-chinese-checkin/') && parsed.data) {
+        stateObj = parsed.data;
+      } else if (parsed && typeof parsed === 'object' && 'records' in parsed) {
+        stateObj = parsed;  // 兼容直接 state
+      } else {
+        throw new Error('文件格式不对，应该是「四年级语文打卡数据_xxx.json」');
+      }
+      // 备份当前数据（防止用户误操作）
+      const backup = localStorage.getItem('grade4_chinese_state_v2');
+      localStorage.setItem('_grade4_chinese_state_PRE_IMPORT', backup || '{}');
+      // 写入新数据
+      localStorage.setItem('grade4_chinese_state_v2', JSON.stringify(stateObj));
+      // 刷新 state 引用
+      state = stateObj;
+      // 重渲染所有 tab
+      renderTotal(); renderLearn(); renderReview(); renderError(); renderDuoyin();
+      // 触发云同步上传（如果配置了）
+      if (cloud.enabled) scheduleCloudUpload();
+      const records = Object.keys(stateObj.records || {}).length;
+      const errors = Object.keys(stateObj.errors || {}).length;
+      msg.style.color = '#4CAF50';
+      msg.textContent = `✅ 导入成功！（${records} 条打卡、${errors} 个错字）页面已刷新`;
+      // 清掉 file input 以便下次能选同一个文件
+      event.target.value = '';
+      // 3 秒后关闭
+      setTimeout(() => { closeCloudModal(); updateCloudStatusUI(); }, 2500);
+    } catch (err) {
+      msg.style.color = '#f44336';
+      msg.textContent = '❌ 导入失败：' + err.message;
+      event.target.value = '';
+    }
+  };
+  reader.onerror = () => {
+    msg.style.color = '#f44336';
+    msg.textContent = '❌ 读取文件失败';
+    event.target.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
 }
 
 async function manualUpload() {
